@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Kas Kelas XI RPL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-50 min-h-screen text-slate-800 p-4 md:p-8">
+    <div class="max-w-5xl mx-auto space-y-6">
+        <header class="text-center space-y-1">
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">
+                Buku Kas & Pengeluaran Kelas
+            </h1>
+            <p class="text-sm text-slate-500">
+                Pencatatan Keuangan Mandiri Berbasis JavaScript DOM & LocalStorage
+            </p>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Sisa Saldo Kas</span>
+                <h3 id="totalSaldo" class="text-2xl font-black text-slate-900 mt-2">Rp 0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-600">Total Pemasukan (+)</span>
+                <h3 id="totalMasuk" class="text-2xl font-black text-emerald-600 mt-2">Rp 0</h3>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm">
+                <span class="text-xs font-bold uppercase tracking-wider text-rose-600">Total Pengeluaran (-)</span>
+                <h3 id="totalKeluar" class="text-2xl font-black text-rose-600 mt-2">Rp 0</h3>
+            </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Catat Transaksi Baru</h2>
+            <form id="kasForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label for="tanggal" class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+                    <input type="date" id="tanggal" required
+                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <label for="keterangan" class="block text-xs font-medium text-slate-600 mb-1">Keterangan
+                        Transaksi</label>
+                    <input type="text" id="keterangan" placeholder="Misal: Iuran Kas Minggu 1" required
+                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <label for="jenis" class="block text-xs font-medium text-slate-600 mb-1">Jenis Kas</label>
+                    <select id="jenis" required
+                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white">
+                        <option value="MASUK">Pemasukan (+)</option>
+                        <option value="KELUAR">Pengeluaran (-)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="nominal" class="block text-xs font-medium text-slate-600 mb-1">Nominal (Rp)</label>
+                    <input type="number" id="nominal" min="100" placeholder="0" required
+                        class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg">
+                </div>
+                <div class="md:col-span-4 flex justify-end pt-2 border-t border-slate-100">
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white font-semibold text-xs rounded-xl">
+                        + Simpan Transaksi
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-base font-bold text-slate-800 uppercase tracking-wide">Riwayat Buku Kas</h2>
+                <span id="labelJumlahData" class="text-xs font-mono text-slate-400">0 Data Tersimpan</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-50 text-slate-700 uppercase font-semibold border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3">Tanggal</th>
+                            <th class="px-6 py-3">Keterangan</th>
+                            <th class="px-6 py-3">Jenis</th>
+                            <th class="px-6 py-3 text-right">Nominal</th>
+                            <th class="px-6 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kasTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+            <p id="emptyState" class="hidden text-center py-12 text-slate-400 font-medium">
+                Belum ada transaksi kas yang dicatat.
+            </p>
+        </section>
+    </div>
+    <!-- Script JavaScript diletakkan di sini -->
+    <script>
+        const STORAGE_KEY = 'KAS_KELAS_RPL_STORAGE';
+
+        let kasList = [];
+        try {
+            const rawData = localStorage.getItem(STORAGE_KEY);
+            kasList = rawData ? JSON.parse(rawData) : [];
+        } catch (err) {
+            console.error("Gagal membaca LocalStorage:", err);
+            kasList = [];
+        }
+
+        function simpanKeLocalStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(kasList));
+        }
+
+        function formatRupiah(angka) {
+            return 'Rp ' + Number(angka).toLocaleString('id-ID');
+        }
+        const totalSaldoEl = document.getElementById('totalSaldo');
+        const totalMasukEl = document.getElementById('totalMasuk');
+        const totalKeluarEl = document.getElementById('totalKeluar');
+        const tableBodyEl = document.getElementById('kasTableBody');
+        const emptyStateEl = document.getElementById('emptyState');
+        const labelJumlahDataEl = document.getElementById('labelJumlahData');
+
+        function renderUI() {
+            const pemasukan = kasList
+                .filter(item => item.jenis === 'MASUK')
+                .reduce((total, item) => total + item.nominal, 0);
+
+            const pengeluaran = kasList
+                .filter(item => item.jenis === 'KELUAR')
+                .reduce((total, item) => total + item.nominal, 0);
+
+            const saldoAkhir = pemasukan - pengeluaran;
+
+            totalMasukEl.textContent = formatRupiah(pemasukan)
+            totalKeluarEl.textContent = formatRupiah(pengeluaran);
+            totalSaldoEl.textContent = formatRupiah(saldoAkhir);
+
+            if (saldoAkhir < 0) {
+                totalSaldoEl.className = "text-2xl font-black text-rose-600 mt-2";
+            } else {
+                totalSaldoEl.className = "text-2xl font-black text-slate-900 mt-2";
+            }
+
+            tableBodyEl.innerHTML = '';
+            labelJumlahDataEl.textContent = `${kasList.length} Data Tersimpan`;
+
+            if (kasList.length === 0) {
+                emptyStateEl.classList.remove('hidden');
+                return;
+            }
+
+            emptyStateEl.classList.add('hidden');
+
+            kasList.forEach((transaksi) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+
+                const isMasuk = transaksi.jenis === 'MASUK';
+                const badgeColor = isMasuk
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200';
+                const nominalColor = isMasuk ? 'text-emerald-600' : 'text-rose-600';
+                const nominalTanda = isMasuk ? '+' : '-';
+
+                row.innerHTML = `
+      <td class="px-6 py-3 font-mono text-slate-500">${transaksi.tanggal}</td>
+      <td class="px-6 py-3 font-semibold text-slate-800">${transaksi.keterangan}</td>
+      <td class="px-6 py-3">
+        <span class="px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeColor}">
+          ${transaksi.jenis}
+        </span>
+      </td>
+      <td class="px-6 py-3 text-right font-mono font-bold ${nominalColor}">
+        ${nominalTanda} ${formatRupiah(transaksi.nominal)}
+      </td>
+      <td class="px-6 py-3 text-center">
+        <button onclick="hapusTransaksi('${transaksi.id}')"
+          class="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-rose-50 rounded-lg">
+          Hapus
+        </button>
+      </td>`;
+                tableBodyEl.appendChild(row);
+            });
+        }
+
+
+        const formEl = document.getElementById('kasForm');
+        const tanggalInput = document.getElementById('tanggal');
+        const keteranganInput = document.getElementById('keterangan');
+        const jenisInput = document.getElementById('jenis');
+        const nominalInput = document.getElementById('nominal');
+
+        tanggalInput.value = new Date().toISOString().split('T')[0];
+
+        formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const transaksiBaru = {
+                id: 'TRX-' + Date.now(),
+                tanggal: tanggalInput.value,
+                keterangan: keteranganInput.value.trim(),
+                jenis: jenisInput.value,
+                nominal: Number(nominalInput.value)
+            };
+
+            kasList.unshift(transaksiBaru);
+            simpanKeLocalStorage();
+            renderUI();
+
+            keteranganInput.value = '';
+            nominalInput.value = '';
+            keteranganInput.focus();
+        });
+
+        window.hapusTransaksi = function (id) {
+            if (confirm('Yakin ingin menghapus catatan kas ini?')) {
+                kasList = kasList.filter(item => item.id !== id);
+                simpanKeLocalStorage();
+                renderUI();
+            }
+        };
+
+        renderUI()
+    </script>
+
+
+</body>
+
+</html>
